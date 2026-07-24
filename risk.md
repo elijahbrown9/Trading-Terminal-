@@ -1,6 +1,6 @@
 # ASCEND Hard Risk Limits
 
-Version: 1.0.0  
+Version: 1.1.0
 Status: **NOT APPROVED — LIVE TRADING DISABLED**
 
 These limits fail closed and never bend intraday. If a requested action would
@@ -43,6 +43,21 @@ Additional limits:
 - Maximum reviewed debit per position is the lesser of one unit and $2,500.
 - Maximum aggregate daily opening debit is two units.
 - No margin, instant-deposit buying power, or unsettled proceeds may be relied on.
+- Before every entry, calculate at least 20 aligned daily returns between the
+  candidate and each open underlying. Absolute correlation of 0.70 or greater
+  blocks the entry. Missing or insufficient history fails closed.
+- Correlation is checked across tickers and directions; labels such as energy,
+  index hedge, or offshore driller do not create diversification.
+
+## Decision journal
+
+- Before an entry can reach order review, append ticker, timestamp, grade,
+  one-sentence thesis, and a falsifiable “what proves this wrong” statement.
+- A missing journal line blocks the entry.
+- Outcome and review notes are appended after close; the original thesis and
+  invalidation are never overwritten.
+- Monthly review compares the journal against realized outcomes, churn flags,
+  shadow candidates, and repeated thesis failures.
 
 ## Stops and exits
 
@@ -120,4 +135,3 @@ a new review.
 - Never retry blindly. Unknown placement state means stop and reconcile.
 - Every decision, review, placement attempt, broker response, and rule conflict
   is appended to an audit log with UTC timestamp.
-
