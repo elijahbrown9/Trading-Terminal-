@@ -29,7 +29,7 @@ Then open `terminal.html`.
 ## Architecture
 
 - `strategy.md`, `risk.md`, `workflow.md`: operating law.
-- `garch.py`: dependency-free Gaussian MLE GARCH(1,1).
+- `garch.py`: dependency-free Gaussian MLE asymmetric GJR-GARCH(1,1).
 - `risk_score.py`: weighted composite and dual-STORM veto.
 - `board_signals.py`: leading/coincident/lagging separation and quarantine.
 - `trade_ideas.py`: agreement score and risk-derived sizing.
@@ -38,6 +38,16 @@ Then open `terminal.html`.
 - `engine.py`: deterministic dry-run orchestration.
 - `terminal.py`: self-contained HTML generator.
 - `automation.py`: scheduled dry-run entrypoint and after-action report.
+- `sentiment.py`: validates the host LLM's full-digest directional reading.
+- `correlation.py`: blocks correlated exposure at 0.70 or missing history.
+- `edge_validation.py`: 40-day forward validation, shadow book, and journal.
+- `alerts.py`: read-only stop, 25% move, and grade-flip alert evaluation.
+
+## Evidence policy
+
+The weights and thresholds are hypotheses. The dashboard reports `UNVALIDATED`
+until 40 trading days have settled with following-session SPY/QQQ returns and
+strategy P&L. Even then, the review is exploratory rather than proof of edge.
 
 ## MCP boundary
 
