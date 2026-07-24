@@ -60,6 +60,9 @@ def score_candidate(candidate: dict, grade: int, equity: float) -> TradeIdea:
         blocked.append("strength")
     if grade == -2:
         blocked.append("grade")
+    correlation = candidate.get("correlation_gate", {})
+    if correlation.get("blocked"):
+        blocked.append(str(correlation.get("reason") or "correlation"))
     premium_cap = min(equity * 0.10, 2500.0)
     entry = round(float(candidate.get("entry", midpoint)), 2)
     contracts = floor(premium_cap / (entry * 100)) if entry > 0 and not blocked else 0
@@ -78,4 +81,3 @@ def score_candidate(candidate: dict, grade: int, equity: float) -> TradeIdea:
         maximum_debit=round(contracts * entry * 100, 2),
         blocked_reasons=tuple(blocked),
     )
-

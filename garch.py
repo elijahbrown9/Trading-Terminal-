@@ -1,4 +1,4 @@
-"""Dependency-free GARCH(1,1) fitted by Gaussian maximum likelihood.
+"""Dependency-free asymmetric GJR-GARCH(1,1) fitted by Gaussian MLE.
 
 Input bars are expected to originate from the broker/MCP snapshot boundary.
 No market data is fetched by this module.
@@ -20,6 +20,7 @@ class GarchResult:
     observations: int
     omega: float
     alpha: float
+    gamma: float
     beta: float
     log_likelihood: float
     next_day_expected_move_pct: float
@@ -45,34 +46,45 @@ def _variance(values: Sequence[float]) -> float:
     return max(1e-12, sum((x - mean) ** 2 for x in values) / len(values))
 
 
-def _params(raw: Sequence[float]) -> tuple[float, float, float]:
-    """Map unconstrained values to omega>0, alpha>=0, beta>=0, alpha+beta<1."""
+def _params(raw: Sequence[float]) -> tuple[float, float, float, float]:
+    """Map values to omega>0 and alpha+beta+gamma/2<1."""
     omega = exp(max(-30.0, min(5.0, raw[0])))
     ea = exp(max(-15.0, min(15.0, raw[1])))
-    eb = exp(max(-15.0, min(15.0, raw[2])))
-    denom = 1.0 + ea + eb
+    eg = exp(max(-15.0, min(15.0, raw[2])))
+    eb = exp(max(-15.0, min(15.0, raw[3])))
+    denom = 1.0 + ea + 0.5 * eg + eb
     alpha = 0.999 * ea / denom
+    gamma = 0.999 * eg / denom
     beta = 0.999 * eb / denom
-    return omega, alpha, beta
+    return omega, alpha, gamma, beta
 
 
-def _raw_from_params(omega: float, alpha: float, beta: float) -> list[float]:
-    remaining = max(1e-8, 0.999 - alpha - beta)
-    return [log(max(omega, 1e-18)), log(max(alpha, 1e-8) / remaining), log(max(beta, 1e-8) / remaining)]
+def _raw_from_params(omega: float, alpha: float, gamma: float, beta: float) -> list[float]:
+    remaining = max(1e-8, 0.999 - alpha - 0.5 * gamma - beta)
+    return [
+        log(max(omega, 1e-18)),
+        log(max(alpha, 1e-8) / remaining),
+        log(max(gamma, 1e-8) / remaining),
+        log(max(beta, 1e-8) / remaining),
+    ]
 
 
-def _filter_variance(returns: Sequence[float], omega: float, alpha: float, beta: float) -> list[float]:
-    unconditional = omega / max(1e-8, 1.0 - alpha - beta)
+def _filter_variance(
+    returns: Sequence[float], omega: float, alpha: float, gamma: float, beta: float
+) -> list[float]:
+    unconditional = omega / max(1e-8, 1.0 - alpha - beta - gamma / 2)
     variances = [max(unconditional, _variance(returns))]
     for i in range(1, len(returns)):
-        value = omega + alpha * returns[i - 1] ** 2 + beta * variances[-1]
+        shock = returns[i - 1]
+        leverage = gamma * shock ** 2 if shock < 0 else 0.0
+        value = omega + alpha * shock ** 2 + leverage + beta * variances[-1]
         variances.append(max(1e-14, value))
     return variances
 
 
 def _negative_log_likelihood(raw: Sequence[float], returns: Sequence[float]) -> float:
-    omega, alpha, beta = _params(raw)
-    variances = _filter_variance(returns, omega, alpha, beta)
+    omega, alpha, gamma, beta = _params(raw)
+    variances = _filter_variance(returns, omega, alpha, gamma, beta)
     value = 0.5 * sum(log(2.0 * pi) + log(h) + (r * r / h) for r, h in zip(returns, variances))
     return value if isfinite(value) else 1e100
 
@@ -125,20 +137,28 @@ def fit_garch(symbol: str, closes: Iterable[float]) -> GarchResult:
     returns = log_returns(close_list)
     sample_variance = _variance(returns)
     starts = [
-        (sample_variance * 0.05, 0.05, 0.90),
-        (sample_variance * 0.10, 0.10, 0.80),
-        (sample_variance * 0.02, 0.03, 0.95),
+        (sample_variance * 0.05, 0.04, 0.08, 0.88),
+        (sample_variance * 0.10, 0.08, 0.12, 0.75),
+        (sample_variance * 0.02, 0.02, 0.06, 0.92),
     ]
     fitted = []
-    for omega, alpha, beta in starts:
-        raw, nll = _nelder_mead(lambda x: _negative_log_likelihood(x, returns), _raw_from_params(omega, alpha, beta))
+    for omega, alpha, gamma, beta in starts:
+        raw, nll = _nelder_mead(
+            lambda x: _negative_log_likelihood(x, returns),
+            _raw_from_params(omega, alpha, gamma, beta),
+        )
         fitted.append((nll, raw))
     nll, raw = min(fitted, key=lambda item: item[0])
-    omega, alpha, beta = _params(raw)
-    variances = _filter_variance(returns, omega, alpha, beta)
-    next_variance = omega + alpha * returns[-1] ** 2 + beta * variances[-1]
-    long_run = omega / (1.0 - alpha - beta)
-    persistence = alpha + beta
+    omega, alpha, gamma, beta = _params(raw)
+    variances = _filter_variance(returns, omega, alpha, gamma, beta)
+    last_shock = returns[-1]
+    next_variance = (
+        omega + alpha * last_shock ** 2
+        + (gamma * last_shock ** 2 if last_shock < 0 else 0.0)
+        + beta * variances[-1]
+    )
+    persistence = alpha + beta + gamma / 2
+    long_run = omega / (1.0 - persistence)
     forecast_variances = [long_run + (persistence ** horizon) * (next_variance - long_run) for horizon in range(1, 22)]
     forecast_21 = fmean(forecast_variances)
     current_vol = sqrt(next_variance * TRADING_DAYS)
@@ -150,6 +170,7 @@ def fit_garch(symbol: str, closes: Iterable[float]) -> GarchResult:
         observations=len(returns),
         omega=omega,
         alpha=alpha,
+        gamma=gamma,
         beta=beta,
         log_likelihood=-nll,
         next_day_expected_move_pct=sqrt(next_variance) * 100,
@@ -164,4 +185,3 @@ def fit_garch(symbol: str, closes: Iterable[float]) -> GarchResult:
 def fit_from_bars(symbol: str, bars: Sequence[dict]) -> GarchResult:
     closes = [float(bar["close_price"] if "close_price" in bar else bar["close"]) for bar in bars]
     return fit_garch(symbol, closes)
-

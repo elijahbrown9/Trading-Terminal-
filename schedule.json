@@ -4,6 +4,7 @@
   "trading_days_only": true,
   "jobs": [
     {"name": "preopen", "time": "09:00", "purpose": "Run all models, compute grade and ideas, publish terminal, then report.", "trading_actions": "forbidden"},
+    {"name": "read-only-alert-monitor", "cadence": "hourly during regular session", "purpose": "Notify on stop breach, absolute position move >=25%, or grade flip.", "trading_actions": "forbidden"},
     {"name": "intraday-0935", "time": "09:35", "purpose": "Reconcile and manage exits first, then dry-run entries, publish and report.", "trading_actions": "forbidden"},
     {"name": "intraday-1030", "time": "10:30", "purpose": "Reconcile and manage exits first, then dry-run entries, publish and report.", "trading_actions": "forbidden"},
     {"name": "intraday-1200", "time": "12:00", "purpose": "Reconcile and manage exits first, then dry-run entries, publish and report.", "trading_actions": "forbidden"},

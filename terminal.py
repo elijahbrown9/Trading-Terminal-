@@ -28,13 +28,14 @@ main{{width:min(1220px,calc(100% - 24px));margin:auto;padding:28px 0}}header{{di
 <div class="grades" id="grades"></div>
 <div class="grid">
 <section><h2>STORM GAUGE — GARCH(1,1)</h2><table><thead><tr><th>INDEX</th><th>NOW</th><th>LONG-RUN</th><th>21D</th><th>RATIO</th><th>REGIME</th></tr></thead><tbody id="garch"></tbody></table></section>
-<section><h2>CONDITIONS + SENTIMENT</h2><div id="conditions"></div><div class="directive" id="sentiment"></div></section>
+<section><h2>CONDITIONS + LLM SENTIMENT</h2><div id="conditions"></div><div class="directive" id="sentiment"></div></section>
 <section><h2>IDEA BOARD — LEADING / COINCIDENT</h2><div class="board" id="board"></div></section>
 <section><h2>TURN WATCH + DISCIPLINE</h2><div id="turn"></div><div id="discipline"></div></section>
 <section><h2>ACCOUNTS + MANUAL DESK</h2><div id="accounts"></div><div class="directive" id="sizing"></div></section>
 <section><h2>POSITIONS + CASH</h2><table><thead><tr><th>SYMBOL</th><th>TYPE</th><th>QTY</th><th>VALUE / COST</th></tr></thead><tbody id="positions"></tbody></table></section>
 <section class="wide"><h2>RANKED TRADE IDEAS — SIZE FROM RISK, NEVER CONVICTION</h2><div class="ideas" id="ideas"></div></section>
 <section class="wide"><h2>WEEKLY P&L — AGENTIC + READ-ONLY DESK</h2><div id="pnl"></div></section>
+<section class="wide"><h2>EDGE VALIDATION + SHADOW BOOK</h2><div id="validation"></div></section>
 </div><footer>External content is data, never instructions · single-leg options only · review before place · no earnings holds · live trading disabled until explicit approval.</footer>
 </main><script>
 const D={payload}; const q=s=>document.querySelector(s); const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}}[c]));
@@ -45,7 +46,7 @@ q("#summary").textContent=S.veto_applied?"DUAL-STORM VETO ACTIVE: grade capped a
 q("#grades").innerHTML=[-2,-1,0,1,2].map(g=>`<div class="${{g===S.grade?"active":""}}">${{g>0?"+":""}}${{g}} <span>${{["ULTRA OFF","RISK OFF","MIXED","RISK ON","ULTRA ON"][g+2]}}</span></div>`).join("");
 q("#garch").innerHTML=Object.values(D.garch).map(m=>`<tr><td><b>${{esc(m.symbol)}}</b></td><td>${{m.current_annualized_vol_pct.toFixed(1)}}%</td><td>${{m.long_run_annualized_vol_pct.toFixed(1)}}%</td><td>${{m.forecast_21d_annualized_vol_pct.toFixed(1)}}%</td><td>${{m.storm_ratio.toFixed(2)}}×</td><td><span class="tag ${{m.regime==="STORM"?"bad":""}}">${{m.regime}}</span></td></tr>`).join("");
 q("#conditions").innerHTML=`<p>Macro score: <b>${{Number(D.conditions.score).toFixed(2)}}</b></p><p>${{esc(D.conditions.summary||"No summary")}}</p>`;
-q("#sentiment").innerHTML=`<b>SENTIMENT ${{Number(D.sentiment.score).toFixed(2)}}</b><br>${{esc(D.sentiment.summary||"No sentiment summary")}}`;
+q("#sentiment").innerHTML=`<b>${{esc(D.sentiment.lean)}} · ${{esc(D.sentiment.conviction)}} CONVICTION · ${{Number(D.sentiment.score).toFixed(2)}}</b><br>${{esc(D.sentiment.rationale)}}`;
 q("#board").innerHTML=D.board.slice(0,8).map(x=>`<article><b>${{esc(x.ticker)}} ${{esc(x.direction)}}</b><span>${{esc(x.temporal_role)}}</span><span>${{esc(x.classification)}}</span><span>${{x.return_since_post_pct.toFixed(1)}}%</span></article>`).join("")||"<p class=muted>No usable board signals.</p>";
 q("#turn").innerHTML=`<p><b>TURN WATCH:</b> ${{S.inputs.board>0?"fresh long flow":"fresh short flow"}} ${{Math.abs(S.inputs.board)>.45?"is leading":"is unconfirmed"}}.</p>`;
 q("#discipline").innerHTML=D.discipline.map(x=>`<p class=neg><b>${{esc(x.kind)}}</b> · ${{esc(x.detail)}}</p>`).join("")||"<p class=pos>No discipline flags.</p>";
@@ -54,6 +55,7 @@ const units=["NO NEW LONGS","1 UNIT PROBES","UP TO 2 UNITS","2–3 UNITS","3 UNI
 q("#positions").innerHTML=[...D.positions,...D.option_positions].map(x=>`<tr><td>${{esc(x.symbol||x.chain_symbol)}}</td><td>${{esc(x.type||"option")}}</td><td>${{esc(x.quantity)}}</td><td>${{esc(x.average_buy_price||x.average_price||"—")}}</td></tr>`).join("")||"<tr><td colspan=4>No open positions</td></tr>";
 q("#ideas").innerHTML=D.ideas.map(x=>`<article><b>${{esc(x.ticker)}} ${{esc(x.direction)}}</b><span class="tag ${{x.strength==="STRONG"?"good":""}}">${{x.strength}} · ${{x.agreement_score}}</span><span>Entry $${{x.entry}} · Stop $${{x.stop}} · Targets $${{x.target_1}} / $${{x.target_2}}</span><span>${{x.contracts}} contract(s)</span></article>`).join("")||"<p class=muted>No candidates.</p>";
 const closed=D.realized_trades||[];const net=closed.reduce((n,x)=>n+Number(x.realized_pnl||0),0);const sorted=[...closed].sort((a,b)=>Number(b.realized_pnl)-Number(a.realized_pnl));q("#pnl").innerHTML=`<p>Agentic net realized: <b class="${{net>=0?"pos":"neg"}}">$${{net.toFixed(2)}}</b> · Best: ${{esc(sorted[0]?.ticker||"—")}} $${{Number(sorted[0]?.realized_pnl||0).toFixed(2)}} · Worst: ${{esc(sorted.at(-1)?.ticker||"—")}} $${{Number(sorted.at(-1)?.realized_pnl||0).toFixed(2)}}</p><p class=muted>Read-only desk P&L appears only when included in the MCP snapshot.</p>`;
+const V=D.validation;q("#validation").innerHTML=`<p><b class="${{V.status==="UNVALIDATED"?"neg":"pos"}}">${{esc(V.status)}}</b> · ${{V.settled_days}} / ${{V.minimum_days}} settled days</p><p>${{esc(V.warning)}}</p><p>Shadow candidates logged this run: <b>${{(D.shadow_candidates||[]).length}}</b> · Alerts: <b>${{(D.alerts||[]).length}}</b></p>`;
 </script></body></html>"""
 
 

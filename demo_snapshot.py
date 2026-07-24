@@ -57,10 +57,17 @@ def build() -> dict:
             {"ticker": "INTC", "direction": "SHORT", "source": "@research", "text": "dilution risk", "posted_at": (now - timedelta(hours=2)).isoformat(), "return_since_post_pct": -7.8, "crowd_count": 3},
             {"ticker": "MU", "direction": "LONG", "source": "@memory", "text": "DRAM pricing", "posted_at": (now - timedelta(hours=1)).isoformat(), "return_since_post_pct": 1.4, "crowd_count": 4},
         ],
-        "sentiment": {"score": -0.13, "summary": "Desk sentiment remains mixed/cautious."},
+        "sentiment": {
+            "score": -0.13,
+            "lean": "MIXED",
+            "conviction": "LOW",
+            "tickers": ["MU", "INTC"],
+            "rationale": "The full digest contains offsetting memory strength and macro caution.",
+            "model": "host-llm",
+            "assessed_at": now.isoformat(),
+        },
     }
 
 
 if __name__ == "__main__":
     Path("snapshot.demo.json").write_text(json.dumps(build(), indent=2), encoding="utf-8")
-
