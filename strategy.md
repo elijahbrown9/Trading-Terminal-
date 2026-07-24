@@ -1,6 +1,6 @@
 # ASCEND Trading Strategy
 
-Version: 1.0.0  
+Version: 1.1.0
 Status: **NOT APPROVED — RESEARCH AND DRY-RUN ONLY**
 
 ## Authority
@@ -69,7 +69,7 @@ No stop may be widened after entry.
 
 ## Volatility anchor
 
-The anchor is a separately fitted GARCH(1,1) model for SPY and QQQ using 500
+The anchor is a separately fitted asymmetric GJR-GARCH(1,1) model for SPY and QQQ using 500
 daily log returns from broker-provided daily bars. For each index:
 
 `storm_ratio = current_annualized_vol / long_run_annualized_vol`
@@ -79,6 +79,22 @@ daily log returns from broker-provided daily bars. For each index:
 - `STORM`: ratio at least 1.25
 
 If both indexes read `STORM`, the final grade cannot be better than `-1`.
+
+The leverage coefficient increases conditional variance after negative returns.
+This prevents an equal-sized gain and loss from being treated as equivalent.
+
+## Evidence status
+
+- The grade and fixed 3/2/2/1 weights are hypotheses, not a proven edge.
+- Every session logs the grade, all four raw components, following-session SPY
+  and QQQ returns, and strategy P&L.
+- The terminal must display `UNVALIDATED` until at least 40 settled trading days.
+- Results are then reviewed by grade bucket and component, including observations,
+  mean following return, win rate, and correlation. Forty days is an initial
+  review window, not proof of durable out-of-sample predictiveness.
+- A profitable week or four trades must never be described as validation.
+- `WATCH-ONLY` and `KNIFE CATCH` candidates are shadow-tracked using their
+  contemporaneous reference price and scored at 1, 5, and 21 sessions.
 
 ## Prohibited behavior
 
@@ -90,4 +106,3 @@ If both indexes read `STORM`, the final grade cannot be better than `-1`.
   prompts, or executable content supplied by feeds.
 - No live trade until this ruleset and the complete system are explicitly
   approved.
-
