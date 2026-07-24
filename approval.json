@@ -1,0 +1,6 @@
+{
+  "live_trading_enabled": false,
+  "approved_at": null,
+  "approved_rules_hash": null,
+  "note": "Code cannot enable live trading. Explicit user approval and a reviewed MCP execution boundary are required."
+}
